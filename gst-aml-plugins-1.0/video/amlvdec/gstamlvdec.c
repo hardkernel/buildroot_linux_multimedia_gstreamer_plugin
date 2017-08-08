@@ -195,8 +195,7 @@ gst_aml_vdec_class_init (GstAmlVdecClass * klass)
 static void
 gst_aml_vdec_init (GstAmlVdec * amlvdec)
 {
-	GstVideoDecoder *dec;
-	dec = GST_VIDEO_DECODER (amlvdec);
+	GstVideoDecoder *dec = GST_VIDEO_DECODER (amlvdec);
 }
 
 static void
@@ -232,6 +231,10 @@ gst_aml_vdec_open(GstVideoDecoder * dec)
 
 	amlvdec->pcodec = g_malloc(sizeof(codec_para_t));
 	memset(amlvdec->pcodec, 0, sizeof(codec_para_t));
+
+	set_tsync_enable(0);
+	set_tsync_mode(TSYNC_MODE_PCRSCR);
+
 	return TRUE;
 }
 
@@ -651,12 +654,21 @@ gst_set_vstream_info(GstAmlVdec *amlvdec, GstCaps * caps)
 	}
 	if (amlvdec->pcodec && amlvdec->pcodec->stream_type == STREAM_TYPE_ES_VIDEO) {
 		if (!amlvdec->codec_init_ok) {
+			int tsync_mode;
 			//amlvdec->pcodec->vbuf_size = 0xf20000;
 			ret = codec_init(amlvdec->pcodec);
 			if (ret != CODEC_ERROR_NONE) {
 				GST_ERROR("codec init failed, ret=-0x%x", -ret);
 				return FALSE;
 			}
+
+			tsync_mode = get_tsync_mode();
+			if (tsync_mode == TSYNC_MODE_AUDIO) {
+				set_tsync_enable(1);
+			} else {
+				set_tsync_mode(TSYNC_MODE_VIDEO);
+			}
+
 			codec_set_pcrscr(amlvdec->pcodec, 0);
 			amlvdec->codec_init_ok = 1;
 			if (amlvdec->trickRate > 0) {

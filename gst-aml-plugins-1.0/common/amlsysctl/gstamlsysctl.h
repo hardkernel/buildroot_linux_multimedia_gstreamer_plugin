@@ -9,6 +9,10 @@ G_BEGIN_DECLS
     AmlStateSlowForward,
 }AmlState;*/
 
+#define  TSYNC_MODE_VIDEO 0
+#define  TSYNC_MODE_AUDIO 1
+#define  TSYNC_MODE_PCRSCR 2
+
 int set_sysfs_str(const char *path, const char *val);
 int get_sysfs_str(const char *path, char *valstr, int size);
 int set_sysfs_int(const char *path, int val);
@@ -18,6 +22,8 @@ int set_ppscaler_enable(char *enable);
 int get_black_policy();
 int set_tsync_enable(int enable);
 int get_tsync_enable(void);
+int set_tsync_mode(int mode);
+int get_tsync_mode(void);
 int set_fb0_blank(int blank);
 int set_fb1_blank(int blank);
 int set_display_axis(int recovery);
@@ -35,12 +41,12 @@ typedef struct{
     AmlPropFunc setprop;
 }AmlPropType;
 
-#define  AML_DEBUG(x, ...)   GST_INFO_OBJECT(x, ##__VA_ARGS__) 
+#define  AML_DEBUG(x, ...)   GST_INFO_OBJECT(x, ##__VA_ARGS__)
 
 void aml_Install_Property(
-    GObjectClass *kclass, 
-    GHashTable **getPropTable, 
-    GHashTable **setPropTable, 
+    GObjectClass *kclass,
+    GHashTable **getPropTable,
+    GHashTable **setPropTable,
     AmlPropType *prop_pool);
 
 void aml_Uninstall_Property(GHashTable *getPropTable, GHashTable *setPropTable);

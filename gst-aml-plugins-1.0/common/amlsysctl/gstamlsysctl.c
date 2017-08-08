@@ -81,6 +81,11 @@ int set_tsync_enable(int enable)
     return set_sysfs_int("/sys/class/tsync/enable", enable);
 
 }
+int set_tsync_mode(int mode)
+{
+    return set_sysfs_int("/sys/class/tsync/mode", mode);
+
+}
 int set_ppscaler_enable(char *enable)
 {
     return set_sysfs_str("/sys/class/ppmgr/ppscaler", enable);
@@ -95,6 +100,17 @@ int get_tsync_enable(void)
         sscanf(buf, "%d", &val);
     }
     return val == 1 ? val : 0;
+}
+int get_tsync_mode(void)
+{
+    char buf[32];
+    int ret = 0;
+    int val = 0;
+    ret = get_sysfs_str("/sys/class/tsync/mode", buf, 32);
+    if (!ret) {
+        sscanf(buf, "%d", &val);
+    }
+    return val;
 }
 
 int set_fb0_blank(int blank)
@@ -125,7 +141,7 @@ int parse_para(const char *para, int para_num, int *result)
         }
         if (len == 0) {
             break;
-        } 
+        }
        *out++ = strtol(startp, &endp, 0);
         len -= endp - startp;
         startp = endp;
@@ -135,8 +151,8 @@ int parse_para(const char *para, int para_num, int *result)
 }
 
 int set_display_axis(int recovery)
-{    
-    int fd;    
+{
+    int fd;
     char *path = "/sys/class/display/axis";
     char str[128];
     int count, i;
@@ -192,9 +208,9 @@ AmlPropFunc aml_find_propfunc (GHashTable *propTable, gint key)
 }
 
 void aml_Install_Property(
-    GObjectClass *kclass, 
-    GHashTable **getPropTable, 
-    GHashTable **setPropTable, 
+    GObjectClass *kclass,
+    GHashTable **getPropTable,
+    GHashTable **setPropTable,
     AmlPropType *prop_pool)
 {
     GObjectClass*gobject_class = (GObjectClass *) kclass;

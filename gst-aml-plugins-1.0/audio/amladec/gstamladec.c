@@ -3,7 +3,7 @@
  * Copyright (C) 2005 Thomas Vander Stichele <thomas@apestaart.org>
  * Copyright (C) 2005 Ronald S. Bultje <rbultje@ronald.bitfreak.net>
  * Copyright (C) 2015 U-AMLOGICTao.Guo <<user@hostname.org>>
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
  * to deal in the Software without restriction, including without limitation
@@ -226,8 +226,7 @@ gst_aml_adec_class_init (GstAmlAdecClass * klass)
 static void
 gst_aml_adec_init (GstAmlAdec * amladec)
 {
-	GstAudioDecoder *dec;
-	dec = GST_AUDIO_DECODER (amladec);
+	GstAudioDecoder *dec = GST_AUDIO_DECODER (amladec);
 	codec_audio_basic_init();
 	if (!amlcontrol) {
 		amlcontrol = g_malloc(sizeof(struct AmlControl));
@@ -294,6 +293,10 @@ gst_aml_adec_open(GstAudioDecoder * dec)
 	amladec->pcodec = g_malloc(sizeof(codec_para_t));
 	memset(amladec->pcodec, 0, sizeof(codec_para_t));
 	amladec->pcodec->adec_priv = NULL;
+
+	set_tsync_enable(0);
+	set_tsync_mode(TSYNC_MODE_PCRSCR);
+
 	return TRUE;
 }
 
@@ -749,6 +752,7 @@ static gboolean
 aml_decode_init(GstAmlAdec *amladec)
 {
 	int ret;
+	int tsync_mode;
 	//amladec->pcodec->abuf_size =  0xc0000;
 	GST_DEBUG_OBJECT(amladec, "passthrough=%d\n", amlcontrol->passthrough);
 	ret = codec_init(amladec->pcodec);
@@ -756,9 +760,15 @@ aml_decode_init(GstAmlAdec *amladec)
 		GST_ERROR_OBJECT(amladec, "codec init failed, ret=-0x%x", -ret);
 		return FALSE;
 	}
+
+	tsync_mode = get_tsync_mode();
+	if (tsync_mode == TSYNC_MODE_VIDEO) {
+		set_tsync_enable(1);
+	}
+	set_tsync_mode(TSYNC_MODE_AUDIO);
+
 	amladec->codec_init_ok = 1;
 	amlcontrol->passthrough = TRUE;
-	set_tsync_enable(1);
 	codec_set_pcrscr(amladec->pcodec, 0);
 	start_eos_task(amladec);
 	return TRUE;
