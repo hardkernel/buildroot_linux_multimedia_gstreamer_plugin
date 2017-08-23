@@ -628,6 +628,10 @@ gst_aml_vdec_flush(GstVideoDecoder * dec)
 			gst_task_start(amlvdec->eos_task);
 		}
 	}
+	
+	if (get_black_policy() != 1) {
+        	set_black_policy(1);
+        }
 }
 
 static gboolean
