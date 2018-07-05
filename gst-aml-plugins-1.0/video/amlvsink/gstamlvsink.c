@@ -42,7 +42,22 @@ static GstStaticPadTemplate sinktemplate = GST_STATIC_PAD_TEMPLATE ("sink",
 
 #define parent_class gst_aml_vsink_parent_class
 G_DEFINE_TYPE (GstAmlVsink, gst_aml_vsink, GST_TYPE_BASE_SINK);
-
+#define MAXRATE 2
+static double ptsrate=1.0;
+static void
+gst_voption_ratepts (double * rate)
+{
+    char *srate = NULL;
+    srate=getenv("media_gst_rate");
+    if (!srate)
+    {
+        return;
+    }
+    *rate = (double )(atof(srate));
+     if (*rate != 1.0 && *rate > 0 && *rate <= MAXRATE)
+        ptsrate =*rate;
+    return ;
+}
 static void
 gst_aml_vsink_class_init (GstAmlVsinkClass * klass)
 {
@@ -105,6 +120,8 @@ gst_aml_vsink_init (GstAmlVsink * amlvsink)
 #if DEBUG_DUMP
     amlvsink->dump_fd = open("/tmp/gst_aml_vsink.dump", O_CREAT | O_TRUNC | O_WRONLY, 0777);
 #endif
+    ptsrate = 1.0;
+    gst_voption_ratepts(&ptsrate);
 }
 
 int AllocDmaBuffers(GstAmlVsink *amlvsink)
@@ -376,6 +393,9 @@ gst_aml_vsink_query (GstElement * element, GstQuery * query)
             }
             gst_query_parse_position(query, &format, NULL);
             cur = (GstClockTime) pts * 100000LL / 9LL;
+            if (ptsrate != 1 && ptsrate > 0 && ptsrate <= MAXRATE) {
+                cur = cur *ptsrate;
+            }
             gst_query_set_position(query, format, cur);
             res = TRUE;
         } else {

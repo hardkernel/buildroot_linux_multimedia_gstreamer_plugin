@@ -134,10 +134,8 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE ("src",
     GST_STATIC_CAPS (GST_VIDEO_CAPS_MAKE ("I420"))
     );
 
-
 static void					gst_aml_vdec_set_property (GObject * object, guint prop_id, const GValue * value, GParamSpec * pspec);
 static void					gst_aml_vdec_get_property (GObject * object, guint prop_id, GValue * value, GParamSpec * pspec);
-
 static gboolean					gst_aml_vdec_open(GstVideoDecoder * dec);
 static gboolean					gst_aml_vdec_close(GstVideoDecoder * dec);
 static gboolean					gst_aml_vdec_start(GstVideoDecoder * dec);
@@ -162,10 +160,8 @@ gst_aml_vdec_class_init (GstAmlVdecClass * klass)
 	GObjectClass *gobject_class = (GObjectClass *) klass;
 	GstElementClass *element_class = (GstElementClass *) klass;
 	GstVideoDecoderClass *base_class = (GstVideoDecoderClass *) klass;
-
 	gobject_class->set_property = gst_aml_vdec_set_property;
 	gobject_class->get_property = gst_aml_vdec_get_property;
-
 	element_class->change_state = GST_DEBUG_FUNCPTR (gst_aml_vdec_change_state);
 	gst_element_class_add_pad_template(element_class, gst_static_pad_template_get(&sink_factory));
 	gst_element_class_add_pad_template(element_class, gst_static_pad_template_get(&src_factory));
@@ -297,6 +293,27 @@ stop_eos_task (GstAmlVdec *amlvdec)
 	gst_object_unref(amlvdec->eos_task);
 	amlvdec->eos_task = NULL;
 }
+#define MAXRATE 2
+static double vrate=1.0;
+static void
+gst_voption_rate (double * rate,codec_para_t *pcodec)
+{
+	char *srate = NULL;
+	srate=getenv("media_gst_rate");
+	if (!srate)
+	{
+		return;
+	}
+	*rate = (double )(atof(srate));
+
+	if (*rate != 1.0 && *rate > 0 && *rate <= MAXRATE)
+	{
+	    vrate =*rate;
+		pcodec->am_sysinfo.rate /= *rate;
+		printf("playback rate video rate -> %d vrate %f\n", pcodec->am_sysinfo.rate,vrate);
+	}
+	return ;
+}
 
 static gboolean
 gst_aml_vdec_close(GstVideoDecoder * dec)
@@ -360,6 +377,7 @@ gst_aml_vdec_start(GstVideoDecoder * dec)
 	amlvdec->trickRate = 1.0;
 	amlvdec->segment.rate = 1.0;
 	amlvdec->list = NULL;
+	vrate=1.0;
 	amsysfs_set_sysfs_str("/sys/class/vfm/map", "rm default");
 	amsysfs_set_sysfs_str("/sys/class/vfm/map", "add default decoder ppmgr deinterlace amvideo");
 	return TRUE;
@@ -642,6 +660,7 @@ gst_set_vstream_info(GstAmlVdec *amlvdec, GstCaps * caps)
 	gint32 ret = CODEC_ERROR_NONE;
 	AmlStreamInfo *videoinfo = NULL;
 	int coordinate[4] = {0, 0, 0, 0};
+	float rate =1.0;
 	structure = gst_caps_get_structure(caps, 0);
 	name = gst_structure_get_name(structure);
 
@@ -653,13 +672,14 @@ gst_set_vstream_info(GstAmlVdec *amlvdec, GstCaps * caps)
 	if (0 != videoinfo->init(videoinfo, amlvdec->pcodec, structure)) {
 		return FALSE;
 	}
-	if (0 == amlvdec->pcodec->am_sysinfo.width || 0 == amlvdec->pcodec->am_sysinfo.height) {
+	if (0 == amlvdec->pcodec->am_sysinfo.width || 0 == amlvdec->pcodec->am_sysinfo.height || 0 == amlvdec->pcodec->am_sysinfo.rate) {
 		return TRUE;
 	}
 	if (amlvdec->pcodec && amlvdec->pcodec->stream_type == STREAM_TYPE_ES_VIDEO) {
 		if (!amlvdec->codec_init_ok) {
 			int tsync_mode;
 			//amlvdec->pcodec->vbuf_size = 0xf20000;
+			gst_voption_rate(&rate,amlvdec->pcodec);
 			ret = codec_init(amlvdec->pcodec);
 			if (ret != CODEC_ERROR_NONE) {
 				GST_ERROR("codec init failed, ret=-0x%x", -ret);
@@ -718,7 +738,11 @@ gst_aml_vdec_decode (GstAmlVdec *amlvdec, GstBuffer * buf, GstVideoCodecFrame *f
 			*/
 		timestamp = frame->pts;
 		pts = timestamp * 9LL / 100000LL + 1L;
-
+		if (vrate != 1 && vrate > 0 && vrate <= MAXRATE)
+		{
+			 pts = pts/vrate;
+			 GST_INFO_OBJECT(amlvdec, "setpts for playback rate\n");
+		}
 		if (timestamp != GST_CLOCK_TIME_NONE) {
 			if (amlvdec->segment.rate < 0.0) {
 				pts = ~pts;

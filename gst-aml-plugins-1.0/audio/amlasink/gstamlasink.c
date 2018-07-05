@@ -109,7 +109,22 @@ gst_aml_asink_class_init (GstAmlAsinkClass * klass)
 
 }
 
-
+#define MAXRATE 2
+static double aptsrate=1.0;
+static void
+gst_aoption_ratepts (double * rate)
+{
+    char *srate = NULL;
+    srate=getenv("media_gst_rate");
+    if (!srate)
+    {
+        return;
+    }
+    *rate = (double )(atof(srate));
+    if (*rate != 1.0 && *rate > 0 && *rate <= MAXRATE)
+        aptsrate =*rate;
+    return ;
+}
 static void
 gst_aml_asink_init (GstAmlAsink * amlasink)
 {
@@ -117,6 +132,8 @@ gst_aml_asink_init (GstAmlAsink * amlasink)
     gst_base_sink_set_sync(bsink, FALSE);
     gst_base_sink_set_async_enabled(bsink, FALSE);
     amlasink->segment.rate = 1.0;
+    aptsrate = 1.0;
+    gst_aoption_ratepts(&aptsrate);
 }
 
 static void
@@ -237,6 +254,9 @@ gst_aml_asink_query (GstElement * element, GstQuery * query)
             }
             gst_query_parse_position(query, &format, NULL);
             cur = (GstClockTime) pts * 100000LL / 9LL;
+            if (aptsrate != 1.0 && aptsrate > 0 && aptsrate <= MAXRATE) {
+                cur = cur *aptsrate;
+            }
             gst_query_set_position(query, format, cur);
             res = TRUE;
         } else {
