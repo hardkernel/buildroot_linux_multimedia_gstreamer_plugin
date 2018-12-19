@@ -421,7 +421,7 @@ gst_aml_adec_start(GstAudioDecoder * dec)
 
 	amladec->pcodec->audio_pid = 0;
 	amladec->pcodec->has_audio = 1;
-	amladec->pcodec->has_video = 0;
+	amladec->pcodec->has_video = 1;
 	amladec->pcodec->audio_channels = 0;
 	amladec->pcodec->audio_samplerate = 0;
 	amladec->pcodec->noblock = 0;
