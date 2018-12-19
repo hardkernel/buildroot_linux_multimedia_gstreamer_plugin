@@ -16,6 +16,7 @@ enum
 {
   ARG_0,
   PROP_WINDOW_SET,
+  PROP_KEEPOSD,
 };
 
 static void gst_aml_vsink_finalize(GObject * object);
@@ -44,6 +45,7 @@ static GstStaticPadTemplate sinktemplate = GST_STATIC_PAD_TEMPLATE ("sink",
 G_DEFINE_TYPE (GstAmlVsink, gst_aml_vsink, GST_TYPE_BASE_SINK);
 #define MAXRATE 2
 static double ptsrate=1.0;
+static gboolean keeposd=FALSE;
 static void
 gst_voption_ratepts (double * rate)
 {
@@ -80,6 +82,11 @@ gst_aml_vsink_class_init (GstAmlVsinkClass * klass)
             g_param_spec_string("rectangle", "rectangle",
             "Window Set Format: x,y,width,height",
             NULL, G_PARAM_WRITABLE));
+
+    g_object_class_install_property (G_OBJECT_CLASS(klass), PROP_KEEPOSD,
+            g_param_spec_boolean ("keeposd", "keeposd",
+                "Whether to keep OSD during playback",
+                FALSE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
     gst_element_class_add_static_pad_template(gstelement_class, &sinktemplate);
 
@@ -278,6 +285,64 @@ static gboolean gst_aml_vsink_yuvplayer_deinit(GstAmlVsink *amlvsink)
         free(amlvsink->mOutBuffer);
     return TRUE;
 }
+
+static void
+gst_aml_vsink_set_osd_blank(int blank)
+{
+    char *fb_blank0 = "/sys/class/graphics/fb0/blank";
+    char *fb_blank1 = "/sys/class/graphics/fb1/blank";
+
+    char *fb_stat0 = "/sys/class/graphics/fb0/osd_status";
+    char *fb_stat1 = "/sys/class/graphics/fb1/osd_status";
+
+    static int fb0_enable = -1;
+    static int fb1_enable = -1;
+    static int fb0_state = -1;
+    static int fb1_state = -1;
+    char fb_osd_status[32]="";
+
+    if (fb0_enable == -1)
+    {
+        fb_osd_status[0]='\0';
+        if (amsysfs_get_sysfs_str(fb_stat0, fb_osd_status, 32) == 0)
+        {
+            if (strstr(fb_osd_status, "enable: 1"))
+                fb0_enable = 1;
+            else
+                fb0_enable = 0;
+        }
+        else
+            fb0_enable = 1; //In case the osd_status node not exist
+
+    }
+    if (fb1_enable == -1)
+    {
+        fb_osd_status[0]='\0';
+        if (amsysfs_get_sysfs_str(fb_stat1, fb_osd_status, 32) == 0)
+        {
+            if (strstr(fb_osd_status, "enable: 1"))
+                fb1_enable = 1;
+            else
+                fb1_enable = 0;
+        }
+        else
+            fb1_enable = 1; //In case the osd_status node not exist
+    }
+
+    if (fb0_enable && (fb0_state != blank))
+    {
+        amsysfs_set_sysfs_str(fb_blank0, blank ? "1" : "0");
+        fb0_state = blank;
+    }
+
+    if (fb1_enable && (fb1_state != blank))
+    {
+        amsysfs_set_sysfs_str(fb_blank1, blank ? "1" : "0");
+        fb1_state = blank;
+    }
+    return;
+}
+
 static void
 gst_aml_vsink_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec)
@@ -287,6 +352,10 @@ gst_aml_vsink_set_property (GObject * object, guint prop_id,
     amlvsink = GST_AMLVSINK(object);
 
     switch (prop_id) {
+    case PROP_KEEPOSD:
+        keeposd = g_value_get_boolean (value);
+        break;
+
     case PROP_WINDOW_SET: {
         const gchar *str = g_value_get_string(value);
         gchar **parts = g_strsplit(str, ",", 4);
@@ -322,6 +391,10 @@ gst_aml_vsink_get_property (GObject * object, guint prop_id, GValue * value,
     amlvsink = GST_AMLVSINK(object);
 
     switch (prop_id) {
+    case PROP_KEEPOSD:
+        g_value_set_boolean (value, keeposd);
+        break;
+
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -335,6 +408,11 @@ gst_aml_vsink_finalize (GObject * object)
     G_OBJECT_CLASS(parent_class)->finalize(object);
     if (amlvsink->use_yuvplayer) {
         gst_aml_vsink_yuvplayer_deinit(amlvsink);
+    }
+    else
+    {
+        if (!keeposd)
+            gst_aml_vsink_set_osd_blank(0);
     }
 }
 
@@ -504,6 +582,8 @@ gst_aml_vsink_render (GstBaseSink * vsink, GstBuffer * buffer)
     GST_DEBUG_OBJECT(amlvsink, "%llu", GST_BUFFER_TIMESTAMP (buffer));
 
     if (GST_BUFFER_FLAG_IS_SET(buffer, (1 << 16))) {
+        if (!keeposd)
+            gst_aml_vsink_set_osd_blank(1);
         ; //g_print("AMDEC FLAG SET\n");
     } else if (amlvsink->use_yuvplayer == 0) {
         gst_aml_vsink_yuvplayer_init(amlvsink);
