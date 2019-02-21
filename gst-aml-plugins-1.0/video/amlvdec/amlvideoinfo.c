@@ -1001,119 +1001,7 @@ AmlStreamInfo *newAmlInfoWmv()
     info->writeheader = NULL;
     return info;
 }
-static int divx3_write_header(AmlStreamInfo* info, codec_para_t *pcodec)
-{
-   unsigned i = (pcodec->am_sysinfo.width<< 12) | (pcodec->am_sysinfo.height & 0xfff);
-    unsigned char divx311_add[10] = {
-        0x00, 0x00, 0x00, 0x01,
-        0x20, 0x00, 0x00, 0x00,
-        0x00, 0x00
-    };
-    divx311_add[5] = (i >> 16) & 0xff;
-    divx311_add[6] = (i >> 8) & 0xff;
-    divx311_add[7] = i & 0xff;
-#if 0
-    FILE *fp2= fopen("/data/codec.data","a+");
-    if (fp2) {
-        int flen=fwrite(divx311_add,1,sizeof(divx311_add),fp2);
-        fclose(fp2);
-    } else {
-        g_print("could not open file:h263.data");
-    }
-#endif
-    amlCodecWrite(pcodec, divx311_add, sizeof(divx311_add));
-    return 0;
-}
 
-static gint divx3_add_startcode(AmlStreamInfo* info, codec_para_t *pcodec, GstBuffer *buf)
-{
-#define DIVX311_CHUNK_HEAD_SIZE 13
-    gint data_size;
-    guint8 prefix[DIVX311_CHUNK_HEAD_SIZE + 4] = {
-        0x00, 0x00, 0x00, 0x01, 0xb6, 'D', 'I', 'V', 'X', '3', '.', '1', '1',
-    };
-    data_size = gst_buffer_get_size(buf);
-    prefix[DIVX311_CHUNK_HEAD_SIZE + 0] = (data_size >> 24) & 0xff;
-    prefix[DIVX311_CHUNK_HEAD_SIZE + 1] = (data_size >> 16) & 0xff;
-    prefix[DIVX311_CHUNK_HEAD_SIZE + 2] = (data_size >>  8) & 0xff;
-    prefix[DIVX311_CHUNK_HEAD_SIZE + 3] = data_size & 0xff;
-#if 0
-    FILE *fp2= fopen("/data/codec.data","a+");
-    if (fp2 ) {
-        int flen=fwrite(prefix,1,sizeof(prefix),fp2);
-        fclose(fp2);
-    } else {
-        g_print("could not open file:h263.data");
-    }
-#endif
-    amlCodecWrite(pcodec, prefix, sizeof(prefix));
-    return 0;
-}
-
-gint amlInitDivx(AmlStreamInfo* info, codec_para_t *pcodec, GstStructure  *structure)
-{
-    AmlInfoDivx *divx = (AmlInfoDivx *)info;
-    gint version;
-    pcodec->video_type = VFORMAT_MPEG4;
-
-    gst_structure_get_int(structure, "divxversion", &version);
-    divx->version = version;
-    GST_INFO("Video: divxversion=%d", version);
-    switch(version){
-        case 3:
-            pcodec->am_sysinfo.format = VIDEO_DEC_FORMAT_MPEG4_3;
-            info->writeheader = divx3_write_header;
-            info->add_startcode = divx3_add_startcode;
-            break;
-        case 4:
-            pcodec->am_sysinfo.format = VIDEO_DEC_FORMAT_MPEG4_4;
-            break;
-        case 5:
-            pcodec->am_sysinfo.format = VIDEO_DEC_FORMAT_MPEG4_5;
-            break;
-        default:break;
-    }
-    amlVideoInfoInit(info, pcodec, structure);
-
-    return 0;
-}
-
-AmlStreamInfo *newAmlInfoDivx()
-{
-    AmlStreamInfo *info = createVideoInfo(sizeof(AmlInfoDivx));
-    info->init = amlInitDivx;
-    info->writeheader = NULL;
-    info->add_startcode = NULL;
-
-    return info;
-}
-gint amlInitMsmpeg(AmlStreamInfo* info, codec_para_t *pcodec, GstStructure  *structure)
-{
-    AmlInfoMsmpeg *msmpeg = (AmlInfoMsmpeg *)info;
-
-    gint version;
-    gst_structure_get_int (structure, "msmpegversion", &version);
-    msmpeg->version = version;
-    switch(version){
-        case 43:
-            pcodec->video_type = VFORMAT_MPEG4;
-            pcodec->am_sysinfo.format = VIDEO_DEC_FORMAT_MPEG4_3;
-            info->writeheader = divx3_write_header;
-            info->add_startcode = divx3_add_startcode;
-            break;
-        default:break;
-    }
-    amlVideoInfoInit(info, pcodec, structure);
-    return 0;
-}
-
-AmlStreamInfo *newAmlInfoMsmpeg()
-{
-    AmlStreamInfo *info = createVideoInfo(sizeof(AmlInfoMsmpeg));
-    info->init = amlInitMsmpeg;
-    info->writeheader = NULL;
-    return info;
-}
 
 gint amlInitXvid(AmlStreamInfo* info, codec_para_t *pcodec, GstStructure  *structure)
 {
@@ -1166,12 +1054,10 @@ static const AmlStreamInfoPool amlVstreamInfoPool[] = {
     {"video/x-vp9", newAmlInfoVP9},
     {"video/x-cavs", newAmlInfoAVS},
     {"video/mpeg", newAmlInfoMpeg},
-    {"video/x-msmpeg", newAmlInfoMsmpeg},
     {"video/x-h263", newAmlInfoH263},
     {"video/x-jpeg", newAmlInfoJpeg},
     {"image/jpeg", newAmlInfoJpeg},
     {"video/x-wmv", newAmlInfoWmv},
-    {"video/x-divx", newAmlInfoDivx},
     {"video/x-xvid", newAmlInfoXvid},
     {"video/x-flash-video", newAmlInfoFlvH263},
     {"video/x-pn-realvideo", newAmlInfoReal},

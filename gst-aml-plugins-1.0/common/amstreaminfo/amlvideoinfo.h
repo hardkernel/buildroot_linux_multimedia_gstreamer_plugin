@@ -40,11 +40,6 @@ typedef struct{
 
 typedef struct{
     AmlVideoInfo videoinfo;
-    gint version;
-}AmlInfoMsmpeg;
-
-typedef struct{
-    AmlVideoInfo videoinfo;
 }AmlInfoH263;
 
 typedef struct{
@@ -55,11 +50,6 @@ typedef struct{
     AmlVideoInfo videoinfo;
     gint version;
 }AmlInfoWmv;
-
-typedef struct{
-    AmlVideoInfo videoinfo;
-    gint version;
-}AmlInfoDivx;
 
 typedef struct{
     AmlVideoInfo videoinfo;
