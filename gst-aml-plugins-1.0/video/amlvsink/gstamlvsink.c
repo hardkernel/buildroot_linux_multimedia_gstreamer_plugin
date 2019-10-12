@@ -207,8 +207,8 @@ static gboolean gst_aml_vsink_yuvplayer_init(GstAmlVsink *amlvsink)
     amsysfs_set_sysfs_str("/sys/class/vfm/map", "rm default");
     amsysfs_set_sysfs_str("/sys/class/vfm/map",
             "add default yuvplayer amvideo");
-    amsysfs_set_sysfs_str("/sys/class/graphics/fb0/blank", "1");
-    amsysfs_set_sysfs_str("/sys/class/graphics/fb1/blank", "1");
+    set_fb0_blank(1);
+    set_fb1_blank(1);
 
     amlvsink->mOutBuffer = (out_buffer_t *) malloc(
             sizeof(out_buffer_t) * OUT_BUFFER_COUNT);
@@ -273,8 +273,8 @@ static gboolean gst_aml_vsink_yuvplayer_deinit(GstAmlVsink *amlvsink)
         amlvsink->amvideo_dev = NULL;
     }
     amsysfs_set_sysfs_str("/sys/class/video/disable_video", "2");
-    amsysfs_set_sysfs_str("/sys/class/graphics/fb0/blank", "0");
-    amsysfs_set_sysfs_str("/sys/class/graphics/fb1/blank", "0");
+    set_fb0_blank(0);
+    set_fb1_blank(0);
     amsysfs_set_sysfs_str("/sys/class/vfm/map", "rm default");
     amsysfs_set_sysfs_str("/sys/class/vfm/map",
             "add default decoder ppmgr deinterlace amvideo");
@@ -289,55 +289,29 @@ static gboolean gst_aml_vsink_yuvplayer_deinit(GstAmlVsink *amlvsink)
 static void
 gst_aml_vsink_set_osd_blank(int blank)
 {
-    char *fb_blank0 = "/sys/class/graphics/fb0/blank";
-    char *fb_blank1 = "/sys/class/graphics/fb1/blank";
-
-    char *fb_stat0 = "/sys/class/graphics/fb0/osd_status";
-    char *fb_stat1 = "/sys/class/graphics/fb1/osd_status";
-
     static int fb0_enable = -1;
     static int fb1_enable = -1;
     static int fb0_state = -1;
     static int fb1_state = -1;
-    char fb_osd_status[32]="";
 
     if (fb0_enable == -1)
     {
-        fb_osd_status[0]='\0';
-        if (amsysfs_get_sysfs_str(fb_stat0, fb_osd_status, 32) == 0)
-        {
-            if (strstr(fb_osd_status, "enable: 1"))
-                fb0_enable = 1;
-            else
-                fb0_enable = 0;
-        }
-        else
-            fb0_enable = 1; //In case the osd_status node not exist
-
+        fb0_enable = get_osd0_status();
     }
     if (fb1_enable == -1)
     {
-        fb_osd_status[0]='\0';
-        if (amsysfs_get_sysfs_str(fb_stat1, fb_osd_status, 32) == 0)
-        {
-            if (strstr(fb_osd_status, "enable: 1"))
-                fb1_enable = 1;
-            else
-                fb1_enable = 0;
-        }
-        else
-            fb1_enable = 1; //In case the osd_status node not exist
+        fb1_enable = get_osd1_status();
     }
 
     if (fb0_enable && (fb0_state != blank))
     {
-        amsysfs_set_sysfs_str(fb_blank0, blank ? "1" : "0");
+        set_fb0_blank(blank);
         fb0_state = blank;
     }
 
     if (fb1_enable && (fb1_state != blank))
     {
-        amsysfs_set_sysfs_str(fb_blank1, blank ? "1" : "0");
+        set_fb1_blank(blank);
         fb1_state = blank;
     }
     return;

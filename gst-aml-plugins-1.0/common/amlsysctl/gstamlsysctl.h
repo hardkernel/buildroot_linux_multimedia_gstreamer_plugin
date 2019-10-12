@@ -26,6 +26,8 @@ int set_tsync_mode(int mode);
 int get_tsync_mode(void);
 int set_fb0_blank(int blank);
 int set_fb1_blank(int blank);
+int get_osd0_status(void);
+int get_osd1_status(void);
 int set_display_axis(int recovery);
 
 typedef int (*AmlPropFunc)(GObject * object, guint prop_id,

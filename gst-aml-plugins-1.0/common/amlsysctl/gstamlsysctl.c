@@ -8,6 +8,7 @@
 #include <ctype.h>
 #include "gstamlsysctl.h"
 static int axis[8] = {0};
+static int use_wayland;
 int set_sysfs_str(const char *path, const char *val)
 {
     int fd;
@@ -115,12 +116,72 @@ int get_tsync_mode(void)
 
 int set_fb0_blank(int blank)
 {
-    return  set_sysfs_int("/sys/class/graphics/fb0/blank", blank);
+    if (use_wayland || set_sysfs_int("/sys/class/graphics/fb0/blank", blank))
+    {
+        use_wayland = 1;
+        return  set_sysfs_int("/sys/kernel/debug/dri/0/vpu/blank", blank);
+    }
+    else
+        return 0;
 }
 
 int set_fb1_blank(int blank)
 {
-    return  set_sysfs_int("/sys/class/graphics/fb1/blank", blank);
+    if (use_wayland || set_sysfs_int("/sys/class/graphics/fb1/blank", blank))
+    {
+        use_wayland = 1;
+        return  set_sysfs_int("/sys/kernel/debug/dri/64/vpu/blank", blank);
+    }
+    else
+        return 0;
+}
+
+int get_osd0_status(void)
+{
+    char osd_status[128]="";
+    char *fb_stat0 = "/sys/class/graphics/fb0/osd_status";
+    char *wl_blank0 = "/sys/kernel/debug/dri/0/vpu/blank";
+    if (use_wayland || (get_sysfs_str(fb_stat0, osd_status, 32) != 0))
+    {
+        memset(osd_status, 0, sizeof(osd_status));
+        if (get_sysfs_str(wl_blank0, osd_status, 128) == 0)
+        {
+            use_wayland = 1;
+            if (strstr(osd_status, "blank_enable: 0"))
+                return 1;
+            else
+                return 0;
+        }else
+            return 1;
+    }
+    if (strstr(osd_status, "enable: 1"))
+        return 1;
+    else
+        return 0;
+}
+
+int get_osd1_status(void)
+{
+    char osd_status[128]="";
+    char *fb_stat1 = "/sys/class/graphics/fb1/osd_status";
+    char *wl_blank1 = "/sys/kernel/debug/dri/64/vpu/blank";
+    if (use_wayland || (get_sysfs_str(fb_stat1, osd_status, 32) != 0))
+    {
+        memset(osd_status, 0, sizeof(osd_status));
+        if (get_sysfs_str(wl_blank1, osd_status, 128) == 0)
+        {
+            use_wayland = 1;
+            if (strstr(osd_status, "blank_enable: 0"))
+                return 1;
+            else
+                return 0;
+        }else
+            return 1;
+    }
+    if (strstr(osd_status, "enable: 1"))
+        return 1;
+    else
+        return 0;
 }
 
 int parse_para(const char *para, int para_num, int *result)
